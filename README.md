@@ -61,6 +61,26 @@ python3 generate.py --sizes 256x256x256 512x1024x512 --seed 0
 
 Then rebuild and run `./harness`.
 
+## Profiling with Nsight Compute
+
+To capture a profile you can open on another machine:
+
+```bash
+ncu --set full -o my_kernel ./harness ./data/1024x1024x1024
+```
+
+This generates `my_kernel.ncu-rep`. Avoid profiling large sizes (e.g. 4096³) — ncu replays the kernel many times per metric and it will be very slow.
+
+Commit and push the report so you can grab it elsewhere:
+
+```bash
+git add my_kernel.ncu-rep
+git commit -m "add ncu profile"
+git push
+```
+
+Then on another machine: `git pull` and open `my_kernel.ncu-rep` in the Nsight Compute GUI.
+
 ## Files
 
 | File | Purpose |
