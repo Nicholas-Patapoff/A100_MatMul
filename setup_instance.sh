@@ -9,7 +9,7 @@ GPU="${GPU:-A100}"
 STORAGE="${STORAGE:-100}"
 INSTANCE_NAME="A100-MatMul"
 REPO="https://github.com/Nicholas-Patapoff/A100_MatMul.git"
-REMOTE_DIR="/home/A100_MatMul"
+REMOTE_DIR="/home/ubuntu/A100_MatMul"
 
 # Parse args
 while [[ $# -gt 0 ]]; do
@@ -21,14 +21,37 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "==> Creating instance (gpu=$GPU, storage=${STORAGE}GB)..."
-CREATE_JSON=$(jl create --gpu "$GPU" --storage "$STORAGE" --name "$INSTANCE_NAME" --yes --json)
+CREATE_JSON=$(jl create --gpu "$GPU" --storage "$STORAGE" --name "$INSTANCE_NAME" --vm --yes --json)
 echo "$CREATE_JSON"
 
 MACHINE_ID=$(echo "$CREATE_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('machine_id') or d['id'])")
 echo "==> Machine ID: $MACHINE_ID"
 
+echo "==> Waiting for SSH to become available..."
+while ! jl exec "$MACHINE_ID" -- true 2>/dev/null; do
+  echo "  SSH not ready, retrying in 10s..."
+  sleep 10
+done
+
 echo "==> Cloning repo..."
 jl exec "$MACHINE_ID" -- git clone "$REPO" "$REMOTE_DIR"
+
+echo "==> Installing Python dependencies..."
+RUN_JSON=$(jl run --on "$MACHINE_ID" --json --yes -- sh -lc "sudo apt-get update && sudo apt-get install -y python3-pip && sudo pip3 install -r $REMOTE_DIR/requirements.txt")
+RUN_ID=$(echo "$RUN_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['run_id'])")
+echo "==> Run ID: $RUN_ID"
+echo "==> Waiting for pip install to complete..."
+while true; do
+  sleep 15
+  STATUS=$(jl run status "$RUN_ID" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['state'])")
+  echo "  status: $STATUS"
+  if [[ "$STATUS" == "succeeded" || "$STATUS" == "failed" || "$STATUS" == "stopped" ]]; then break; fi
+done
+jl run logs "$RUN_ID"
+if [[ "$STATUS" != "succeeded" ]]; then
+  echo "ERROR: pip install failed (status=$STATUS)."
+  exit 1
+fi
 
 echo "==> Running make generate..."
 RUN_JSON=$(jl run --on "$MACHINE_ID" --json --yes -- sh -lc "cd $REMOTE_DIR && make generate")
