@@ -1,0 +1,31 @@
+
+=== Test: M=512 N=512 K=512 ===
+  Avg Abs Error : 1.571228e-03
+  Max Abs Error : 8.734822e-03
+  RMSE          : 1.971599e-03
+  Avg Rel Error : 2.957234e-03
+
+=== Test: M=1024 N=1024 K=1024 ===
+  Avg Abs Error : 2.217356e-03
+  Max Abs Error : 1.330757e-02
+  RMSE          : 2.779238e-03
+  Avg Rel Error : 2.628685e-03
+
+=== Test: M=2048 N=2048 K=2048 ===
+  Avg Abs Error : 3.140826e-03
+  Max Abs Error : 2.127075e-02
+  RMSE          : 3.936625e-03
+  Avg Rel Error : 2.767314e-03
+
+=== Test: M=4096 N=4096 K=4096 ===
+  Avg Abs Error : 4.447777e-03
+  Max Abs Error : 3.135014e-02
+  RMSE          : 5.574523e-03
+  Avg Rel Error : 3.148551e-03
+
+=== Overall Averages (4 tests) ===
+  Avg Abs Error : 2.844297e-03
+  Max Abs Error : 3.135014e-02
+  RMSE          : 3.565496e-03
+  Avg Rel Error : 2.875446e-03
+
