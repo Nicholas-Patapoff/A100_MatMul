@@ -17,15 +17,15 @@ __global__ void matrix_multiplication_kernel(float *A, float *B, float *C, int M
     fragment<accumulator, 16, 16, 8, float> c_frag;
     fill_fragment(c_frag, 0.0f);
     // move the tiles and track A and B tiles (starting point)
-    for (int i = 0; i < N; i += TILE)
+    for (int i = 0; i < K; i += TILE)
     {
         int Arow = Crow;
         int Acol = i;
         int Brow = i;
         int Bcol = Ccol;
 
-        load_matrix_sync(a_frag, A + Arow * N + Acol, N);
-        load_matrix_sync(b_frag, B + Brow * K + Bcol, K);
+        load_matrix_sync(a_frag, A + Arow * K + Acol, K);
+        load_matrix_sync(b_frag, B + Brow * N + Bcol, N);
         for (int t = 0; t < a_frag.num_elements; t++)
             a_frag.x[t] = __float_to_tf32(a_frag.x[t]);
         for (int t = 0; t < b_frag.num_elements; t++)
@@ -100,7 +100,7 @@ void solve(float *A, float *B, float *C, int M, int N, int K)
     strip_matrix<<<gridC, block>>>(Cp, C, M, K, Kp);
 
     cudaDeviceSynchronize();
-    cudaFree(&Cp);
-    cudaFree(&Bp);
-    cudaFree(&Ap);
+    cudaFree(Cp);
+    cudaFree(Bp);
+    cudaFree(Ap);
 }
