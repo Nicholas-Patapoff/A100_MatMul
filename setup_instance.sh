@@ -6,7 +6,7 @@
 set -euo pipefail
 
 GPU="${GPU:-A100}"
-STORAGE="${STORAGE:-50}"
+STORAGE="${STORAGE:-100}"
 REPO="https://github.com/Nicholas-Patapoff/A100_MatMul.git"
 REMOTE_DIR="/home/A100_MatMul"
 
@@ -23,7 +23,7 @@ echo "==> Creating instance (gpu=$GPU, storage=${STORAGE}GB)..."
 CREATE_JSON=$(jl create --gpu "$GPU" --storage "$STORAGE" --yes --json)
 echo "$CREATE_JSON"
 
-MACHINE_ID=$(echo "$CREATE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+MACHINE_ID=$(echo "$CREATE_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('machine_id') or d['id'])")
 echo "==> Machine ID: $MACHINE_ID"
 
 echo "==> Cloning repo..."
@@ -37,15 +37,16 @@ echo "==> Run ID: $RUN_ID"
 echo "==> Waiting for make generate to complete..."
 while true; do
   sleep 15
-  LOGS=$(jl run logs "$RUN_ID" --tail 20)
-  echo "$LOGS"
-  if echo "$LOGS" | grep -q "succeeded\|failed"; then
+  STATUS=$(jl run status "$RUN_ID" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+  echo "  status: $STATUS"
+  if [[ "$STATUS" == "completed" || "$STATUS" == "failed" || "$STATUS" == "stopped" ]]; then
     break
   fi
 done
+jl run logs "$RUN_ID"
 
-if echo "$LOGS" | grep -q "failed"; then
-  echo "ERROR: make generate failed. Check logs above."
+if [[ "$STATUS" != "completed" ]]; then
+  echo "ERROR: make generate failed (status=$STATUS). Check logs above."
   exit 1
 fi
 
@@ -57,15 +58,16 @@ echo "==> Run ID: $RUN_ID"
 echo "==> Waiting for make to complete..."
 while true; do
   sleep 15
-  LOGS=$(jl run logs "$RUN_ID" --tail 20)
-  echo "$LOGS"
-  if echo "$LOGS" | grep -q "succeeded\|failed"; then
+  STATUS=$(jl run status "$RUN_ID" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+  echo "  status: $STATUS"
+  if [[ "$STATUS" == "completed" || "$STATUS" == "failed" || "$STATUS" == "stopped" ]]; then
     break
   fi
 done
+jl run logs "$RUN_ID"
 
-if echo "$LOGS" | grep -q "failed"; then
-  echo "ERROR: make failed. Check logs above."
+if [[ "$STATUS" != "completed" ]]; then
+  echo "ERROR: make failed (status=$STATUS). Check logs above."
   exit 1
 fi
 
