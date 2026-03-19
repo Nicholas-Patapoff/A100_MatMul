@@ -63,7 +63,7 @@ __global__ void strip_matrix(float *src, float *dst, int dstRows, int dstCols, i
 }
 
 // A, B, C are device pointers (i.e. pointers to memory on the GPU)
-extern "C" void solve(float *A, float *B, float *C, int M, int N, int K)
+void solve(float *A, float *B, float *C, int M, int N, int K)
 {
     int Mp = ((M + 15) / 16) * 16;
     int Np = ((N + 15) / 16) * 16;
