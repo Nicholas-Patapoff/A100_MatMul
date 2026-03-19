@@ -4,7 +4,7 @@
 using namespace nvcuda::wmma;
 
 #define TILE 8
-__global__ void matrix_multiplication_kernel(const float *A, const float *B, float *C, int M, int N,
+__global__ void matrix_multiplication_kernel(float *A, float *B, float *C, int M, int N,
                                              int K)
 {
 
@@ -36,7 +36,7 @@ __global__ void matrix_multiplication_kernel(const float *A, const float *B, flo
     store_matrix_sync(C + Crow * K + Ccol, c_frag, K, mem_row_major);
 }
 
-__global__ void pad_matrix(const float *src, float *dst, int srcRows, int srcCols, int dstCols)
+__global__ void pad_matrix(float *src, float *dst, int srcRows, int srcCols, int dstCols)
 {
     int col = threadIdx.x + blockDim.x * blockIdx.x;
     int row = threadIdx.y + blockDim.y * blockIdx.y;
@@ -51,7 +51,7 @@ __global__ void pad_matrix(const float *src, float *dst, int srcRows, int srcCol
     dst[row * dstCols + col] = (val);
 }
 
-__global__ void strip_matrix(const float *src, float *dst, int dstRows, int dstCols, int srcCols)
+__global__ void strip_matrix(float *src, float *dst, int dstRows, int dstCols, int srcCols)
 {
     int col = threadIdx.x + blockDim.x * blockIdx.x;
     int row = threadIdx.y + blockDim.y * blockIdx.y;
@@ -63,7 +63,7 @@ __global__ void strip_matrix(const float *src, float *dst, int dstRows, int dstC
 }
 
 // A, B, C are device pointers (i.e. pointers to memory on the GPU)
-extern "C" void solve(const float *A, const float *B, float *C, int M, int N, int K)
+extern "C" void solve(float *A, float *B, float *C, int M, int N, int K)
 {
     int Mp = ((M + 15) / 16) * 16;
     int Np = ((N + 15) / 16) * 16;
