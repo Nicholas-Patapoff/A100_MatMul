@@ -11,7 +11,7 @@ import argparse
 import os
 import numpy as np
 
-DEFAULT_SIZES = ["512x512x512", "1024x1024x1024", "2048x2048x2048", "4096x4096x4096"]
+DEFAULT_SIZES = ["512x512x512", "1024x1024x1024"]
 
 
 def parse_size(s):

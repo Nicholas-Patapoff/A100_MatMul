@@ -13,7 +13,7 @@ RESULTS_DIR="results"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
 PROBLEM="matmul"
 KERNEL=""
-PROFILE_SIZE="4096"
+PROFILE_SIZE="1024"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
