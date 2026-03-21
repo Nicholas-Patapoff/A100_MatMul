@@ -1,29 +1,49 @@
 # A100 MatMul
 
-A test harness for developing and evaluating custom CUDA matrix multiplication kernels on an A100 GPU. Instead of pass/fail, it reports accuracy metrics so you can tune precision as you iterate on your kernel implementations.
+A test harness for developing and benchmarking custom CUDA kernels on a JarvisLabs A100. Each run builds your kernel, checks accuracy against a float64 reference, and captures an Nsight Compute profile — all automated via `run_harness.sh`.
 
-## How it works
+## Structure
 
-1. `generate.py` creates float32 test matrices (A, B) and their reference products (C_ref = A @ B, computed in float64 for accuracy) and saves them to `data/`.
-2. `harness.cu` loads each test case, calls your `solve()` function, and compares the output against C_ref.
-3. You implement `solve()` in `solve.cu` — that's the only file you need to edit.
-
-## Quick start
-
-```bash
-# Generate test data (default: 512³, 1024³, 2048³, 4096³)
-make generate
-
-# Build
-make
-
-# Run
-./harness
+```
+kernels/
+└── matmul/
+    ├── solutions/        # your .cu kernel implementations
+    ├── harness.cu        # test runner
+    ├── solve.h           # interface (do not modify)
+    ├── gen_tests.py      # generates test data
+    ├── Makefile
+    ├── results/          # harness output (committed)
+    └── profiles/         # ncu-rep files (committed)
 ```
 
-## Writing your kernel
+## Workflow
 
-Edit `solve.cu`. The harness calls:
+```bash
+# Run everything (build, test, profile) on the remote A100
+./run_harness.sh
+
+# Run a specific kernel
+./run_harness.sh --kernel my_kernel
+
+# Run a different problem
+./run_harness.sh --problem reduction
+
+# Change the profile size (default: 1024)
+./run_harness.sh --size 512
+```
+
+`run_harness.sh` will:
+1. Resume the JarvisLabs instance
+2. `git pull` + build
+3. Run the harness across all test sizes
+4. Profile with `ncu --set full` at the specified size
+5. Download the `.ncu-rep` to `kernels/<problem>/profiles/`
+6. Commit results and push
+7. Pause the instance
+
+## Writing a kernel
+
+Add a `.cu` file to `kernels/matmul/solutions/`. The harness calls:
 
 ```cpp
 void solve(float* A, float* B, float* C, int M, int N, int K);
@@ -31,9 +51,8 @@ void solve(float* A, float* B, float* C, int M, int N, int K);
 
 - `A` is M×K, `B` is K×N, `C` is M×N — all row-major device pointers
 - Fill `C` with `A @ B` before returning
-- Launch whatever kernels you want inside `solve()`
 
-The file ships with a naive baseline (one thread per output element) that you can use as a starting point or reference.
+Then run with `--kernel <filename_without_extension>`.
 
 ## Output
 
@@ -43,50 +62,33 @@ The file ships with a naive baseline (one thread per output element) that you ca
   Max Abs Error : 1.831e-03
   RMSE          : 3.724e-04
   Avg Rel Error : 8.901e-05
-
-=== Overall Averages (4 tests) ===
-  ...
 ```
 
 - **Avg Abs Error** — typical element-wise error
-- **Max Abs Error** — worst-case error (useful for catching race conditions or tile bugs)
+- **Max Abs Error** — worst-case error (useful for catching tile/race bugs)
 - **RMSE** — like avg abs but penalizes large outliers more
-- **Avg Rel Error** — error normalized by magnitude; useful for spotting scaling bugs
+- **Avg Rel Error** — error normalized by magnitude; useful for scaling bugs
 
-## Generating custom sizes
+## Profiles
 
-```bash
-python3 generate.py --sizes 256x256x256 512x1024x512 --seed 0
-```
-
-Then rebuild and run `./harness`.
-
-## Profiling with Nsight Compute
-
-To capture a profile you can open on another machine:
+`.ncu-rep` files are committed to `kernels/<problem>/profiles/`. After a run, open locally with:
 
 ```bash
-ncu --set full -o my_kernel ./harness ./data/1024x1024x1024
+ncu-ui kernels/matmul/profiles/<timestamp>_<size>.ncu-rep
 ```
 
-This generates `my_kernel.ncu-rep`. Avoid profiling large sizes (e.g. 4096³) — ncu replays the kernel many times per metric and it will be very slow.
+Or pull on another machine and open from there.
 
-Commit and push the report so you can grab it elsewhere:
+## First-time setup
 
 ```bash
-git add my_kernel.ncu-rep
-git commit -m "add ncu profile"
-git push
+./setup_instance.sh           # creates A100 instance, clones repo, generates test data, builds
+./setup_instance.sh --gpu A100-80GB  # use 80GB variant
 ```
 
-Then on another machine: `git pull` and open `my_kernel.ncu-rep` in the Nsight Compute GUI.
+## Generating test data manually
 
-## Files
-
-| File | Purpose |
-|---|---|
-| `generate.py` | Generates test matrices and saves to `data/` |
-| `solve.h` | Interface declaration — do not modify |
-| `solve.cu` | Your kernel implementation goes here |
-| `harness.cu` | Test runner — loads data, calls solve, reports metrics |
-| `Makefile` | Builds with `nvcc -arch=sm_80` (A100) |
+```bash
+python3 kernels/matmul/gen_tests.py
+python3 kernels/matmul/gen_tests.py --sizes 256x256x256 512x512x512
+```
