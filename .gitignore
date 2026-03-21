@@ -1,6 +1,5 @@
 kernels/*/testdata/
 kernels/*/harness
-kernels/*/profiles/
 data/
 profiles/
 *.o
