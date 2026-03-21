@@ -1,18 +1,10 @@
-NVCC      = nvcc
-ARCH      = -arch=sm_80
-CFLAGS    = -O3 -std=c++17
-NVCCFLAGS = $(ARCH) $(CFLAGS)
-
-TARGET = harness
-SRCS   = harness.cu solve.cu
-
-$(TARGET): $(SRCS) solve.h
-	$(NVCC) $(NVCCFLAGS) -o $(TARGET) $(SRCS) -lm
+all:
+	$(MAKE) -C kernels/matmul
 
 clean:
-	rm -f $(TARGET)
+	$(MAKE) -C kernels/matmul clean
 
-generate:
-	python3 generate.py
+gen_tests:
+	$(MAKE) -C kernels/matmul gen_tests
 
-.PHONY: clean generate
+.PHONY: all clean gen_tests

@@ -1,3 +1,12 @@
+"""
+Generate float32 matmul test cases as binary files.
+Runs locally -- no GPU needed.
+
+Usage:
+    python kernels/matmul/gen_tests.py
+    python kernels/matmul/gen_tests.py --sizes 512x512x512 4096x4096x4096
+"""
+
 import argparse
 import os
 import numpy as np
@@ -36,7 +45,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate float32 matmul test cases.")
     parser.add_argument("--sizes", nargs="+", default=DEFAULT_SIZES,
                         help="Sizes in MxNxK format (default: 512^3 1024^3 2048^3 4096^3)")
-    parser.add_argument("--outdir", default="./data", help="Output directory (default: ./data)")
+    parser.add_argument("--outdir", default="./testdata", help="Output directory (default: ./testdata)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
     args = parser.parse_args()
 

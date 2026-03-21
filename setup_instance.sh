@@ -53,12 +53,12 @@ if [[ "$STATUS" != "succeeded" ]]; then
   exit 1
 fi
 
-echo "==> Running make generate..."
-RUN_JSON=$(jl run --on "$MACHINE_ID" --json --yes -- sh -lc "cd $REMOTE_DIR && make generate")
+echo "==> Running make gen_tests..."
+RUN_JSON=$(jl run --on "$MACHINE_ID" --json --yes -- sh -lc "cd $REMOTE_DIR && make gen_tests")
 RUN_ID=$(echo "$RUN_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['run_id'])")
 echo "==> Run ID: $RUN_ID"
 
-echo "==> Waiting for make generate to complete..."
+echo "==> Waiting for make gen_tests to complete..."
 while true; do
   sleep 15
   STATUS=$(jl run status "$RUN_ID" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['state'])")
@@ -70,7 +70,7 @@ done
 jl run logs "$RUN_ID"
 
 if [[ "$STATUS" != "succeeded" ]]; then
-  echo "ERROR: make generate failed (status=$STATUS). Check logs above."
+  echo "ERROR: make gen_tests failed (status=$STATUS). Check logs above."
   exit 1
 fi
 

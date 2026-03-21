@@ -99,11 +99,11 @@ static std::vector<TestCase> discover_tests(const std::string& datadir) {
 }
 
 int main(int argc, char** argv) {
-    std::string datadir = (argc > 1) ? argv[1] : "./data";
+    std::string datadir = (argc > 1) ? argv[1] : "./testdata";
 
     auto cases = discover_tests(datadir);
     if (cases.empty()) {
-        fprintf(stderr, "No test cases found in '%s'. Run: python3 generate.py\n", datadir.c_str());
+        fprintf(stderr, "No test cases found in '%s'. Run: python3 gen_tests.py\n", datadir.c_str());
         return 1;
     }
 

@@ -1,4 +1,4 @@
-#include "solve.h"
+#include "../solve.h"
 #include <cuda_runtime.h>
 #include <mma.h>
 using namespace nvcuda::wmma;

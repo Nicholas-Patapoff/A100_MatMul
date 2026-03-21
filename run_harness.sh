@@ -7,6 +7,8 @@ set -euo pipefail
 
 INSTANCE_NAME="A100-MatMul"
 REMOTE_DIR="/home/ubuntu/A100_MatMul"
+HARNESS="${REMOTE_DIR}/kernels/matmul/harness"
+TESTDATA_DIR="${REMOTE_DIR}/kernels/matmul/testdata"
 RESULTS_DIR="results"
 PROFILES_DIR="profiles"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
@@ -88,7 +90,7 @@ if [[ "$STATUS" != "succeeded" ]]; then
   exit 1
 fi
 
-RUN_ID=$(start_run "Running harness..." sh -lc "cd $REMOTE_DIR && ./harness")
+RUN_ID=$(start_run "Running harness..." sh -lc "cd ${REMOTE_DIR}/kernels/matmul && ./harness")
 echo "==> Run ID: $RUN_ID"
 echo "==> Waiting for harness to complete..."
 wait_for_run "$RUN_ID"
@@ -106,10 +108,10 @@ fi
 if [[ -n "$PROFILE_SIZE" ]]; then
   PROFILE_NAME="${TIMESTAMP}_${PROFILE_SIZE}"
   REMOTE_PROFILE="/tmp/${PROFILE_NAME}"
-  DATA_PATH="${REMOTE_DIR}/data/${PROFILE_SIZE}x${PROFILE_SIZE}x${PROFILE_SIZE}"
+  DATA_PATH="${TESTDATA_DIR}/${PROFILE_SIZE}x${PROFILE_SIZE}x${PROFILE_SIZE}"
 
   RUN_ID=$(start_run "Profiling ${PROFILE_SIZE}x${PROFILE_SIZE}x${PROFILE_SIZE} with ncu..." sh -lc \
-    "mkdir -p /tmp/profile_data && ln -sf ${DATA_PATH} /tmp/profile_data/ && sudo /usr/local/cuda/bin/ncu --set full -o ${REMOTE_PROFILE} ${REMOTE_DIR}/harness /tmp/profile_data")
+    "mkdir -p /tmp/profile_data && ln -sf ${DATA_PATH} /tmp/profile_data/ && sudo /usr/local/cuda/bin/ncu --set full -o ${REMOTE_PROFILE} ${HARNESS} /tmp/profile_data")
   echo "==> Run ID: $RUN_ID"
   echo "==> Waiting for ncu to complete..."
   wait_for_run "$RUN_ID"
