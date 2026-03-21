@@ -1,6 +1,6 @@
-kernels/matmul/testdata/
-kernels/matmul/harness
-kernels/matmul/profiles/
+kernels/*/testdata/
+kernels/*/harness
+kernels/*/profiles/
 data/
 profiles/
 *.o

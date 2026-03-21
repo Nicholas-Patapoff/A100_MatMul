@@ -1,26 +1,34 @@
 #!/usr/bin/env bash
-# Resume the A100-MatMul instance, run harness, save results to git, then pause.
-# Usage: ./run_harness.sh [--profile SIZE]
-#   --profile SIZE  Run ncu on just the SIZExSIZExSIZE test (e.g. --profile 4096)
+# Resume the A100-MatMul instance, run harness + ncu profile, save results, then pause.
+# Usage: ./run_harness.sh [--problem PROBLEM] [--kernel KERNEL] [--size SIZE]
+#   --problem PROBLEM  Kernel problem to run (default: matmul)
+#   --kernel KERNEL    Solution file to compile from solutions/ (default: per Makefile)
+#   --size SIZE        Matrix/vector size to profile with ncu (default: 4096)
 
 set -euo pipefail
 
 INSTANCE_NAME="A100-MatMul"
 REMOTE_DIR="/home/ubuntu/A100_MatMul"
-HARNESS="${REMOTE_DIR}/kernels/matmul/harness"
-TESTDATA_DIR="${REMOTE_DIR}/kernels/matmul/testdata"
 RESULTS_DIR="results"
-PROFILES_DIR="profiles"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
-RESULT_FILE="$RESULTS_DIR/${TIMESTAMP}.txt"
-PROFILE_SIZE=""
+PROBLEM="matmul"
+KERNEL=""
+PROFILE_SIZE="4096"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --profile) PROFILE_SIZE="$2"; shift 2 ;;
+    --problem) PROBLEM="$2"; shift 2 ;;
+    --kernel)  KERNEL="$2"; shift 2 ;;
+    --size)    PROFILE_SIZE="$2"; shift 2 ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
+
+KERNEL_DIR="${REMOTE_DIR}/kernels/${PROBLEM}"
+HARNESS="${KERNEL_DIR}/harness"
+TESTDATA_DIR="${KERNEL_DIR}/testdata"
+RESULT_FILE="${RESULTS_DIR}/${PROBLEM}/${TIMESTAMP}.txt"
+PROFILES_DIR="kernels/${PROBLEM}/profiles"
 
 wait_for_run() {
   local run_id="$1"
@@ -78,7 +86,8 @@ while ! jl exec "$MACHINE_ID" -- true 2>/dev/null; do
   sleep 10
 done
 
-RUN_ID=$(start_run "Pulling latest changes and rebuilding..." sh -lc "cd $REMOTE_DIR && git pull && make")
+MAKE_ARGS="PROBLEM=$PROBLEM${KERNEL:+ KERNEL=$KERNEL}"
+RUN_ID=$(start_run "Pulling latest changes and rebuilding..." sh -lc "cd $REMOTE_DIR && git pull && make $MAKE_ARGS")
 echo "==> Run ID: $RUN_ID"
 echo "==> Waiting for build to complete..."
 wait_for_run "$RUN_ID"
@@ -90,13 +99,13 @@ if [[ "$STATUS" != "succeeded" ]]; then
   exit 1
 fi
 
-RUN_ID=$(start_run "Running harness..." sh -lc "cd ${REMOTE_DIR}/kernels/matmul && ./harness")
+RUN_ID=$(start_run "Running harness..." sh -lc "cd ${KERNEL_DIR} && ./harness")
 echo "==> Run ID: $RUN_ID"
 echo "==> Waiting for harness to complete..."
 wait_for_run "$RUN_ID"
 
 echo "==> Fetching logs..."
-mkdir -p "$RESULTS_DIR"
+mkdir -p "$(dirname "$RESULT_FILE")"
 jl run logs "$RUN_ID" | tee "$RESULT_FILE"
 
 if [[ "$STATUS" != "succeeded" ]]; then
@@ -105,38 +114,37 @@ if [[ "$STATUS" != "succeeded" ]]; then
   exit 1
 fi
 
-if [[ -n "$PROFILE_SIZE" ]]; then
-  PROFILE_NAME="${TIMESTAMP}_${PROFILE_SIZE}"
-  REMOTE_PROFILE="/tmp/${PROFILE_NAME}"
-  DATA_PATH="${TESTDATA_DIR}/${PROFILE_SIZE}x${PROFILE_SIZE}x${PROFILE_SIZE}"
+PROFILE_NAME="${TIMESTAMP}_${PROFILE_SIZE}"
+REMOTE_PROFILE="/tmp/${PROFILE_NAME}"
+DATA_PATH="${TESTDATA_DIR}/${PROFILE_SIZE}x${PROFILE_SIZE}x${PROFILE_SIZE}"
 
-  RUN_ID=$(start_run "Profiling ${PROFILE_SIZE}x${PROFILE_SIZE}x${PROFILE_SIZE} with ncu..." sh -lc \
-    "mkdir -p /tmp/profile_data && ln -sf ${DATA_PATH} /tmp/profile_data/ && sudo /usr/local/cuda/bin/ncu --set full -o ${REMOTE_PROFILE} ${HARNESS} /tmp/profile_data")
-  echo "==> Run ID: $RUN_ID"
-  echo "==> Waiting for ncu to complete..."
-  wait_for_run "$RUN_ID"
-  jl run logs "$RUN_ID"
+RUN_ID=$(start_run "Profiling ${PROFILE_SIZE}x${PROFILE_SIZE}x${PROFILE_SIZE} with ncu..." sh -lc \
+  "mkdir -p /tmp/profile_data && ln -sf ${DATA_PATH} /tmp/profile_data/ && sudo /usr/local/cuda/bin/ncu --set full -o ${REMOTE_PROFILE} ${HARNESS} /tmp/profile_data")
+echo "==> Run ID: $RUN_ID"
+echo "==> Waiting for ncu to complete..."
+wait_for_run "$RUN_ID"
+jl run logs "$RUN_ID"
 
-  if [[ "$STATUS" != "succeeded" ]]; then
-    echo "ERROR: ncu failed (status=$STATUS)."
-    jl pause "$MACHINE_ID" --yes --json
-    exit 1
-  fi
-
-  echo "==> Downloading profile..."
-  mkdir -p "$PROFILES_DIR"
-  scp -i ~/.ssh/Jarvis -o StrictHostKeyChecking=no \
-    ${SSH_USER}@${PUBLIC_IP}:${REMOTE_PROFILE}.ncu-rep \
-    ${PROFILES_DIR}/${PROFILE_NAME}.ncu-rep
-  echo "==> Profile saved to ${PROFILES_DIR}/${PROFILE_NAME}.ncu-rep"
+if [[ "$STATUS" != "succeeded" ]]; then
+  echo "ERROR: ncu failed (status=$STATUS)."
+  jl pause "$MACHINE_ID" --yes --json
+  exit 1
 fi
+
+echo "==> Downloading profile..."
+mkdir -p "$PROFILES_DIR"
+scp -i ~/.ssh/Jarvis -o StrictHostKeyChecking=no \
+  ${SSH_USER}@${PUBLIC_IP}:${REMOTE_PROFILE}.ncu-rep \
+  ${PROFILES_DIR}/${PROFILE_NAME}.ncu-rep
+echo "==> Profile saved to ${PROFILES_DIR}/${PROFILE_NAME}.ncu-rep"
+echo "==> Open with: ncu-ui ${PROFILES_DIR}/${PROFILE_NAME}.ncu-rep"
 
 echo "==> Pausing instance $MACHINE_ID..."
 jl pause "$MACHINE_ID" --yes --json
 
 echo "==> Committing results to git..."
 git add "$RESULT_FILE"
-git commit -m "Add harness results $TIMESTAMP"
+git commit -m "Add harness results $TIMESTAMP [$PROBLEM]"
 git push
 
 echo ""
