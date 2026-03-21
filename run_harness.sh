@@ -9,7 +9,6 @@ set -euo pipefail
 
 INSTANCE_NAME="A100-MatMul"
 REMOTE_DIR="/home/ubuntu/A100_MatMul"
-RESULTS_DIR="results"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
 PROBLEM="matmul"
 KERNEL=""
@@ -27,7 +26,7 @@ done
 KERNEL_DIR="${REMOTE_DIR}/kernels/${PROBLEM}"
 HARNESS="${KERNEL_DIR}/harness"
 TESTDATA_DIR="${KERNEL_DIR}/testdata"
-RESULT_FILE="${RESULTS_DIR}/${PROBLEM}/${TIMESTAMP}.txt"
+RESULT_FILE="kernels/${PROBLEM}/results/${TIMESTAMP}.txt"
 PROFILES_DIR="kernels/${PROBLEM}/profiles"
 
 wait_for_run() {
